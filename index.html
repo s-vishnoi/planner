@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Monthly Habit Tracker</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%8E%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1 id="monthTitle">MONTH</h1>
+    <div class="top-controls">
+      <button id="cloudBtn" class="restore-btn cloud-btn" type="button" title="Cloud sync">☁︎</button>
+      <button id="cloudSignOut" class="cloud-link" type="button" hidden>Sign out</button>
+      <select id="monthSelect"></select>
+      <select id="yearSelect"></select>
+      <button onclick="addHabit()">＋ Add Habit</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <div class="left-col">
+      <div class="table-wrap">
+        <table id="trackerTable"></table>
+      </div>
+      <div class="bottom-cards">
+        <div class="mini-card goals-card">
+          <h3>Goals</h3>
+          <textarea id="monthlyGoals"></textarea>
+        </div>
+        <div class="mini-card excited-card">
+          <h3>Excited</h3>
+          <textarea id="monthlyExcited"></textarea>
+        </div>
+        <div class="mini-card grateful-card">
+          <h3>Insights</h3>
+          <textarea id="monthlyInsights"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-notes">
+      <div class="today-row">
+        <h3 id="todayHeading" class="today-heading">Today</h3>
+        <div class="daily-nav">
+          <button class="nav-btn" id="prevDayBtn" type="button">◀</button>
+          <button class="nav-btn" id="todayBtn" type="button">Today</button>
+          <button class="nav-btn" id="nextDayBtn" type="button">▶</button>
+        </div>
+      </div>
+      <div id="dailyMood" class="mood-row"></div>
+      <div class="sticky-note yellow">
+        <h3>To-Do</h3>
+        <div id="dailyList" class="daily-list"></div>
+      </div>
+
+      <div class="sticky-note pink">
+        <h3>🎟️ Events</h3>
+        <div id="eventsList" class="events-list"></div>
+      </div>
+
+
+    </div>
+  </div>
+</div>
+
+<div id="cloudModal" class="cloud-modal" aria-hidden="true">
+  <div class="cloud-backdrop" id="cloudBackdrop"></div>
+  <div class="cloud-card" role="dialog" aria-modal="true" aria-labelledby="cloudTitle">
+    <h3 id="cloudTitle">Cloud Sync</h3>
+    <label>Email
+      <input id="cloudEmail" type="email" autocomplete="email">
+    </label>
+    <label>Password
+      <input id="cloudPass" type="password" autocomplete="current-password">
+    </label>
+    <div class="cloud-actions">
+      <button id="cloudSignIn" type="button">Sign In</button>
+      <button id="cloudSignUp" type="button">Sign Up</button>
+      <button id="cloudCancel" type="button">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="script.js"></script>
+</body>
+</html>
