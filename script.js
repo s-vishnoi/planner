@@ -21,18 +21,47 @@ const eventsList=document.getElementById('eventsList')
 const monthlyGoals=document.getElementById('monthlyGoals')
 const monthlyExcited=document.getElementById('monthlyExcited')
 const monthlyInsights=document.getElementById('monthlyInsights')
+const dreamsBtn=document.getElementById('dreamsBtn')
+const dreamModal=document.getElementById('dreamModal')
+const dreamBackdrop=document.getElementById('dreamBackdrop')
+const dreamClose=document.getElementById('dreamClose')
+const dreamText=document.getElementById('dreamText')
+const dreamTitle=document.getElementById('dreamTitle')
+const journalBtn=document.getElementById('journalBtn')
+const journalModal=document.getElementById('journalModal')
+const journalBackdrop=document.getElementById('journalBackdrop')
+const journalClose=document.getElementById('journalClose')
+const journalText=document.getElementById('journalText')
+const journalTitle=document.getElementById('journalTitle')
+const gratefulBtn=document.getElementById('gratefulBtn')
+const gratefulModal=document.getElementById('gratefulModal')
+const gratefulBackdrop=document.getElementById('gratefulBackdrop')
+const gratefulClose=document.getElementById('gratefulClose')
+const gratefulInputs=Array.from(document.querySelectorAll('.grateful-input'))
+const gratefulTitle=document.getElementById('gratefulTitle')
+const addHabitBtn=document.getElementById('addHabitBtn')
+const habitModal=document.getElementById('habitModal')
+const habitBackdrop=document.getElementById('habitBackdrop')
+const habitNameInput=document.getElementById('habitNameInput')
+const habitIconInput=document.getElementById('habitIconInput')
+const habitSave=document.getElementById('habitSave')
+const habitCancel=document.getElementById('habitCancel')
+const contextMenu=document.getElementById('contextMenu')
 
 const months=['January','February','March','April','May','June','July','August','September','October','November','December']
 const weekdays=['sun','mon','tue','wed','thu','fri','sat']
 const DAILY_LINES=6
 const EVENTS_LINES=3
 const MOODS=['😊','💪','👍','😢','😴','🤞','🤒']
+const CLOUD_SYNC_INTERVAL_MS=30000
 
 const today=new Date()
 let currentMonth=today.getMonth()
 let currentYear=today.getFullYear()
 let selectedDay=null
 let selectedKey=null
+let contextRange=null
+let contextEditable=null
 
 let store=JSON.parse(localStorage.getItem('habit-plus-v4')||'{}')
 const SUPABASE_URL='https://bkmbbtndwfaqwktzmewe.supabase.co'
@@ -40,6 +69,32 @@ const SUPABASE_ANON_KEY='sb_publishable_a6brLIQat3zDYt2U8ifbYw_EINIeiK_'
 let supabaseClient=null
 let cloudUser=null
 let cloudSyncTimer=null
+let cloudSyncInterval=null
+
+function escapeHtml(text){
+  return String(text)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+}
+
+function textToHtml(text){
+  return escapeHtml(text).replace(/\n/g,'<br>')
+}
+
+function normalizeEditableHtml(el){
+  const text=el.textContent.replace(/\u00a0/g,' ').trim()
+  if(!text) return ''
+  return el.innerHTML
+}
+
+function setEditableHtml(el,html){
+  el.innerHTML=html||''
+}
+
+function clearEditableIfEmpty(el){
+  if(el.textContent.replace(/\u00a0/g,' ').trim()==='') el.innerHTML=''
+}
 
 function daysInMonth(m,y){return new Date(y,m+1,0).getDate()}
 function key(){return currentYear+'-'+currentMonth}
@@ -60,10 +115,8 @@ function initSelectors(){
 monthSelect.onchange=()=>{currentMonth=+monthSelect.value;render()}
 yearSelect.onchange=()=>{currentYear=+yearSelect.value;render()}
 
-function addHabit(){
-  const name=prompt('Habit name')
+function addHabit(name,icon){
   if(!name) return
-  const icon=prompt('Emoji icon','')||''
   store[key()]??={habits:[],events:[],daily:{}}
   store[key()].habits.push({
     name,icon,
@@ -83,9 +136,14 @@ function editHabit(i){
   save()
 }
 
-function toggle(h,d){
+function toggle(h,d,mode){
   const habit=store[key()].habits[h]
-  habit.checks[d]=!habit.checks[d]
+  const current=habit.checks[d]
+  if(mode==='yellow'){
+    habit.checks[d]=current==='yellow'?false:'yellow'
+  }else{
+    habit.checks[d]=current===true?false:true
+  }
   save()
 }
 
@@ -109,12 +167,20 @@ function initSupabase(){
   supabaseClient.auth.getSession().then(({data})=>{
     cloudUser=data.session?data.session.user:null
     updateCloudUI()
-    if(cloudUser) loadFromCloud()
+    if(cloudUser){
+      loadFromCloud()
+      startCloudSyncLoop()
+    }
   })
   supabaseClient.auth.onAuthStateChange((_event,session)=>{
     cloudUser=session?session.user:null
     updateCloudUI()
-    if(cloudUser) loadFromCloud()
+    if(cloudUser){
+      loadFromCloud()
+      startCloudSyncLoop()
+    }else{
+      stopCloudSyncLoop()
+    }
   })
 }
 
@@ -144,6 +210,20 @@ function scheduleCloudSync(){
   cloudSyncTimer=setTimeout(pushToCloud,800)
 }
 
+function startCloudSyncLoop(){
+  if(cloudSyncInterval) return
+  cloudSyncInterval=setInterval(()=>{
+    if(!supabaseClient||!cloudUser) return
+    pushToCloud()
+  },CLOUD_SYNC_INTERVAL_MS)
+}
+
+function stopCloudSyncLoop(){
+  if(!cloudSyncInterval) return
+  clearInterval(cloudSyncInterval)
+  cloudSyncInterval=null
+}
+
 async function pushToCloud(){
   if(!supabaseClient||!cloudUser) return
   const payload={...store}
@@ -166,7 +246,11 @@ async function loadFromCloud(){
     .select('data,updated_at')
     .eq('user_id',cloudUser.id)
     .single()
-  if(error||!data||!data.data) return
+  if(error&&error.code!=='PGRST116') return
+  if(!data||!data.data){
+    scheduleCloudSync()
+    return
+  }
   const cloudData=data.data
   const localUpdated=getUpdatedAt(store)
   const cloudUpdated=getUpdatedAt(cloudData)||Date.parse(data.updated_at)
@@ -183,16 +267,114 @@ function getDaily(day){
   store[key()].daily??={}
   const dayKey=String(day)
   if(!store[key()].daily[dayKey]){
-    store[key()].daily[dayKey]={items:Array.from({length:DAILY_LINES},()=>({text:'',done:false})),mood:[]}
+    store[key()].daily[dayKey]={
+      items:Array.from({length:DAILY_LINES},()=>({text:'',done:false})),
+      mood:[],
+      dream:'',
+      journal:'',
+      grateful:Array.from({length:5},()=> '')
+    }
   }
   const items=store[key()].daily[dayKey].items
   while(items.length<DAILY_LINES){
     items.push({text:'',done:false})
   }
+  if(!store[key()].daily[dayKey]._rich){
+    store[key()].daily[dayKey].dream=textToHtml(store[key()].daily[dayKey].dream||'')
+    store[key()].daily[dayKey].journal=textToHtml(store[key()].daily[dayKey].journal||'')
+    store[key()].daily[dayKey].grateful=(store[key()].daily[dayKey].grateful||[]).map(item=>(
+      textToHtml(item||'')
+    ))
+    items.forEach(item=>{
+      if(!item._rich){
+        item.text=textToHtml(item.text||'')
+        item._rich=true
+      }
+    })
+    store[key()].daily[dayKey]._rich=true
+  }
   if(!Array.isArray(store[key()].daily[dayKey].mood)){
     store[key()].daily[dayKey].mood=store[key()].daily[dayKey].mood?[store[key()].daily[dayKey].mood]:[]
   }
+  if(typeof store[key()].daily[dayKey].dream!=='string'){
+    store[key()].daily[dayKey].dream=''
+  }
+  if(typeof store[key()].daily[dayKey].journal!=='string'){
+    store[key()].daily[dayKey].journal=''
+  }
+  if(!Array.isArray(store[key()].daily[dayKey].grateful)){
+    store[key()].daily[dayKey].grateful=[]
+  }
+  while(store[key()].daily[dayKey].grateful.length<5){
+    store[key()].daily[dayKey].grateful.push('')
+  }
+  store[key()].daily[dayKey].grateful=store[key()].daily[dayKey].grateful.slice(0,5)
+  if(store[key()].daily[dayKey].grateful.some(item=>typeof item!=='string')){
+    store[key()].daily[dayKey].grateful=store[key()].daily[dayKey].grateful.map(item=>(
+      typeof item==='string'?item:''
+    ))
+  }
   return store[key()].daily[dayKey]
+}
+
+function openDreamModal(){
+  if(selectedDay===null) return
+  const daily=getDaily(selectedDay)
+  dreamTitle.textContent=`Dreams • ${formatDayLabel(selectedDay)}`
+  setEditableHtml(dreamText,daily.dream||'')
+  dreamModal.classList.add('show')
+  dreamModal.setAttribute('aria-hidden','false')
+  dreamText.focus()
+}
+
+function closeDreamModal(){
+  dreamModal.classList.remove('show')
+  dreamModal.setAttribute('aria-hidden','true')
+}
+
+function openHabitModal(){
+  habitModal.classList.add('show')
+  habitModal.setAttribute('aria-hidden','false')
+  habitNameInput.value=''
+  habitIconInput.value=''
+  habitNameInput.focus()
+}
+
+function closeHabitModal(){
+  habitModal.classList.remove('show')
+  habitModal.setAttribute('aria-hidden','true')
+}
+
+function openJournalModal(){
+  if(selectedDay===null) return
+  const daily=getDaily(selectedDay)
+  journalTitle.textContent=`Journal • ${formatDayLabel(selectedDay)}`
+  setEditableHtml(journalText,daily.journal||'')
+  journalModal.classList.add('show')
+  journalModal.setAttribute('aria-hidden','false')
+  journalText.focus()
+}
+
+function closeJournalModal(){
+  journalModal.classList.remove('show')
+  journalModal.setAttribute('aria-hidden','true')
+}
+
+function openGratefulModal(){
+  if(selectedDay===null) return
+  const daily=getDaily(selectedDay)
+  gratefulTitle.textContent=`Grateful • ${formatDayLabel(selectedDay)}`
+  gratefulInputs.forEach((input,i)=>{
+    setEditableHtml(input,daily.grateful?.[i]||'')
+  })
+  gratefulModal.classList.add('show')
+  gratefulModal.setAttribute('aria-hidden','false')
+  if(gratefulInputs[0]) gratefulInputs[0].focus()
+}
+
+function closeGratefulModal(){
+  gratefulModal.classList.remove('show')
+  gratefulModal.setAttribute('aria-hidden','true')
 }
 
 function renderDailyList(day,container){
@@ -209,15 +391,17 @@ function renderDailyList(day,container){
       check.classList.toggle('checked',item.done)
       saveQuiet()
     })
-    const input=document.createElement('input')
+    const input=document.createElement('div')
     input.className='todo-input'
-    input.type='text'
-    input.placeholder='Write a task...'
-    input.value=item.text
+    input.setAttribute('contenteditable','true')
+    input.dataset.placeholder='Write a task...'
+    setEditableHtml(input,item.text)
     input.addEventListener('input',e=>{
-      item.text=e.target.value
+      item.text=normalizeEditableHtml(e.target)
+      item._rich=true
       saveQuiet()
     })
+    input.addEventListener('blur',e=>clearEditableIfEmpty(e.target))
     line.appendChild(check)
     line.appendChild(input)
     container.appendChild(line)
@@ -261,6 +445,15 @@ function getEvents(day){
   while(items.length<EVENTS_LINES){
     items.push({text:'',done:false})
   }
+  if(!store[key()].events[dayKey]._rich){
+    items.forEach(item=>{
+      if(!item._rich){
+        item.text=textToHtml(item.text||'')
+        item._rich=true
+      }
+    })
+    store[key()].events[dayKey]._rich=true
+  }
   return store[key()].events[dayKey]
 }
 
@@ -278,15 +471,17 @@ function renderEventsList(day,container){
       check.classList.toggle('checked',item.done)
       saveQuiet()
     })
-    const input=document.createElement('input')
+    const input=document.createElement('div')
     input.className='todo-input'
-    input.type='text'
-    input.placeholder='Event...'
-    input.value=item.text
+    input.setAttribute('contenteditable','true')
+    input.dataset.placeholder='Event...'
+    setEditableHtml(input,item.text)
     input.addEventListener('input',e=>{
-      item.text=e.target.value
+      item.text=normalizeEditableHtml(e.target)
+      item._rich=true
       saveQuiet()
     })
+    input.addEventListener('blur',e=>clearEditableIfEmpty(e.target))
     line.appendChild(check)
     line.appendChild(input)
     container.appendChild(line)
@@ -333,6 +528,13 @@ function render(){
   if(store[key()].monthly.grateful&&!store[key()].monthly.insights){
     store[key()].monthly.insights=store[key()].monthly.grateful
   }
+  if(!store[key()].monthly._rich){
+    store[key()].monthly.goals=textToHtml(store[key()].monthly.goals||'')
+    store[key()].monthly.excited=textToHtml(store[key()].monthly.excited||'')
+    store[key()].monthly.insights=textToHtml(store[key()].monthly.insights||'')
+    store[key()].monthly._rich=true
+    saveQuiet()
+  }
   let colorChanged=false
   store[key()].habits.forEach(h=>{
     if(h.color!=='#e6e6e6'){
@@ -341,12 +543,27 @@ function render(){
     }
   })
   if(colorChanged) saveQuiet()
-  monthlyGoals.value=store[key()].monthly.goals
-  monthlyExcited.value=store[key()].monthly.excited
-  monthlyInsights.value=store[key()].monthly.insights
-  monthlyGoals.oninput=e=>{store[key()].monthly.goals=e.target.value;save()}
-  monthlyExcited.oninput=e=>{store[key()].monthly.excited=e.target.value;save()}
-  monthlyInsights.oninput=e=>{store[key()].monthly.insights=e.target.value;save()}
+  setEditableHtml(monthlyGoals,store[key()].monthly.goals)
+  setEditableHtml(monthlyExcited,store[key()].monthly.excited)
+  setEditableHtml(monthlyInsights,store[key()].monthly.insights)
+  monthlyGoals.oninput=e=>{
+    store[key()].monthly.goals=normalizeEditableHtml(e.target)
+    store[key()].monthly._rich=true
+    saveQuiet()
+  }
+  monthlyExcited.oninput=e=>{
+    store[key()].monthly.excited=normalizeEditableHtml(e.target)
+    store[key()].monthly._rich=true
+    saveQuiet()
+  }
+  monthlyInsights.oninput=e=>{
+    store[key()].monthly.insights=normalizeEditableHtml(e.target)
+    store[key()].monthly._rich=true
+    saveQuiet()
+  }
+  monthlyGoals.onblur=e=>clearEditableIfEmpty(e.target)
+  monthlyExcited.onblur=e=>clearEditableIfEmpty(e.target)
+  monthlyInsights.onblur=e=>clearEditableIfEmpty(e.target)
 
   const activeKey=key()
   if(selectedKey!==activeKey){
@@ -368,8 +585,33 @@ function render(){
   table.appendChild(h1)
 
   const h2=document.createElement('tr')
+  const dailyData=store[key()].daily||{}
+  const isPastDay=(day)=>{
+    const viewDate=new Date(currentYear,currentMonth,day)
+    const todayDate=new Date(today.getFullYear(),today.getMonth(),today.getDate())
+    return viewDate<todayDate
+  }
+  const isToday=(day)=>(
+    currentYear===today.getFullYear()&&
+    currentMonth===today.getMonth()&&
+    day===today.getDate()
+  )
+  const hasText=(value)=>typeof value==='string'&&value.trim().length>0
   h2.innerHTML='<th class="habit-col"></th>'+
-    Array.from({length:days},(_,i)=>`<th class="day-cell" data-day="${i+1}">${i+1}</th>`).join('')+
+    Array.from({length:days},(_,i)=>{
+      const day=i+1
+      const daily=dailyData[String(day)]
+      const hasDream=hasText(daily?.dream)
+  const hasJournal=hasText(daily?.journal)
+  const hasGrateful=Array.isArray(daily?.grateful)&&daily.grateful.some(item=>hasText(item))
+  const marks=[
+    isPastDay(day)&&hasDream?'dream-mark':'',
+    isPastDay(day)&&hasJournal?'journal-mark':'',
+    hasGrateful?'grateful-mark':''
+  ].filter(Boolean).join(' ')
+      const todayClass=isToday(day)?'today-mark':''
+      return `<th class="day-cell ${marks} ${todayClass}" data-day="${day}">${day}</th>`
+    }).join('')+
     '<th class="icon-col"></th><th></th><th></th><th></th>'
   table.appendChild(h2)
 
@@ -405,9 +647,13 @@ function render(){
     for(let d=1;d<=days;d++){
       const td=document.createElement('td')
       const box=document.createElement('div')
-      box.className='checkbox'+(h.checks[d]?' checked':'')
+      const state=h.checks[d]
+      box.className='checkbox'+(state===true?' checked':'')+(state==='yellow'?' checked-yellow':'')
       if(h.checks[d]) total++
-      box.addEventListener('click',()=>toggle(hi,d))
+      box.addEventListener('click',e=>{
+        const yellow=e.metaKey||e.ctrlKey
+        toggle(hi,d,yellow?'yellow':'full')
+      })
       td.appendChild(box)
       tr.appendChild(td)
     }
@@ -418,7 +664,11 @@ function render(){
     iconTd.innerText=h.icon||''
     tr.appendChild(iconTd)
 
+    const daysPassed=(currentYear===today.getFullYear()&&currentMonth===today.getMonth())?today.getDate():days
+    const progressRatio=days?daysPassed/days:0
+    const expectedPct=Math.round(progressRatio*100)
     const pct=Math.round((total/h.goal)*100)||0
+    const pctDelta=pct-expectedPct
     const totalTd=document.createElement('td')
     totalTd.innerText=total
     tr.appendChild(totalTd)
@@ -437,6 +687,13 @@ function render(){
 
     const pctTd=document.createElement('td')
     pctTd.innerText=`${pct}%`
+    if(pctDelta<-35){
+      pctTd.className='pct-bad'
+    }else if(pctDelta<0){
+      pctTd.className='pct-warn'
+    }else{
+      pctTd.className='pct-good'
+    }
     tr.appendChild(pctTd)
 
     table.appendChild(tr)
@@ -469,15 +726,200 @@ cloudSignUp.addEventListener('click',async()=>{
   if(error) alert(error.message)
   else closeCloudModal()
 })
+dreamsBtn.addEventListener('click',openDreamModal)
+dreamBackdrop.addEventListener('click',closeDreamModal)
+dreamClose.addEventListener('click',closeDreamModal)
+dreamText.addEventListener('input',e=>{
+  if(selectedDay===null) return
+  const daily=getDaily(selectedDay)
+  daily.dream=normalizeEditableHtml(e.target)
+  daily._rich=true
+  saveQuiet()
+})
+dreamText.addEventListener('blur',e=>clearEditableIfEmpty(e.target))
+journalBtn.addEventListener('click',openJournalModal)
+journalBackdrop.addEventListener('click',closeJournalModal)
+journalClose.addEventListener('click',closeJournalModal)
+journalText.addEventListener('input',e=>{
+  if(selectedDay===null) return
+  const daily=getDaily(selectedDay)
+  daily.journal=normalizeEditableHtml(e.target)
+  daily._rich=true
+  saveQuiet()
+})
+journalText.addEventListener('blur',e=>clearEditableIfEmpty(e.target))
+gratefulBtn.addEventListener('click',openGratefulModal)
+gratefulBackdrop.addEventListener('click',closeGratefulModal)
+gratefulClose.addEventListener('click',closeGratefulModal)
+gratefulInputs.forEach((input,i)=>{
+  input.addEventListener('input',e=>{
+    if(selectedDay===null) return
+    const daily=getDaily(selectedDay)
+    daily.grateful[i]=normalizeEditableHtml(e.target)
+    daily._rich=true
+    saveQuiet()
+  })
+  input.addEventListener('blur',e=>clearEditableIfEmpty(e.target))
+})
 window.addEventListener('keydown',e=>{
   if(e.key==='Escape'&&cloudModal.classList.contains('show')){
     closeCloudModal()
+  }
+  if(e.key==='Escape'&&dreamModal.classList.contains('show')){
+    closeDreamModal()
+  }
+  if(e.key==='Escape'&&habitModal.classList.contains('show')){
+    closeHabitModal()
+  }
+  if(e.key==='Escape'&&journalModal.classList.contains('show')){
+    closeJournalModal()
+  }
+  if(e.key==='Escape'&&gratefulModal.classList.contains('show')){
+    closeGratefulModal()
+  }
+})
+
+addHabitBtn.addEventListener('click',openHabitModal)
+habitBackdrop.addEventListener('click',closeHabitModal)
+habitCancel.addEventListener('click',closeHabitModal)
+habitSave.addEventListener('click',()=>{
+  const name=habitNameInput.value.trim()
+  const icon=habitIconInput.value.trim()
+  if(!name) return
+  addHabit(name,icon)
+  closeHabitModal()
+})
+
+function closeContextMenu(){
+  contextMenu.classList.remove('show')
+  contextMenu.setAttribute('aria-hidden','true')
+  contextRange=null
+  contextEditable=null
+}
+
+function openContextMenu(x,y,range,editable){
+  contextRange=range
+  contextEditable=editable
+  contextMenu.classList.add('show')
+  contextMenu.setAttribute('aria-hidden','false')
+  contextMenu.style.left=`${x}px`
+  contextMenu.style.top=`${y}px`
+  const rect=contextMenu.getBoundingClientRect()
+  const pad=8
+  let nx=x
+  let ny=y
+  if(rect.right>window.innerWidth-pad){
+    nx=window.innerWidth-rect.width-pad
+  }
+  if(rect.bottom>window.innerHeight-pad){
+    ny=window.innerHeight-rect.height-pad
+  }
+  contextMenu.style.left=`${Math.max(pad,nx)}px`
+  contextMenu.style.top=`${Math.max(pad,ny)}px`
+}
+
+function restoreContextSelection(){
+  if(!contextEditable) return false
+  contextEditable.focus()
+  if(!contextRange) return true
+  const selection=window.getSelection()
+  selection.removeAllRanges()
+  selection.addRange(contextRange)
+  return true
+}
+
+function insertEmoji(emoji){
+  if(!emoji) return
+  const selection=window.getSelection()
+  const makeSpacer=(needsSpace)=>needsSpace?' ':''
+  if(selection.rangeCount){
+    const range=selection.getRangeAt(0)
+    range.deleteContents()
+    const beforeChar=(()=>{
+      const node=range.startContainer
+      if(node.nodeType===Node.TEXT_NODE){
+        return node.textContent?.[range.startOffset-1]||''
+      }
+      return ''
+    })()
+    const afterChar=(()=>{
+      const node=range.startContainer
+      if(node.nodeType===Node.TEXT_NODE){
+        return node.textContent?.[range.startOffset]||''
+      }
+      return ''
+    })()
+    const needsLead=beforeChar&&!/\s/.test(beforeChar)
+    const needsTrail=afterChar&&!/\s/.test(afterChar)
+    const text=makeSpacer(needsLead)+emoji+makeSpacer(needsTrail)
+    range.insertNode(document.createTextNode(text))
+    range.collapse(false)
+    selection.removeAllRanges()
+    selection.addRange(range)
+  }else if(contextEditable){
+    const text=emoji+' '
+    contextEditable.appendChild(document.createTextNode(text))
+  }
+  contextEditable?.dispatchEvent(new Event('input',{bubbles:true}))
+}
+
+contextMenu.addEventListener('click',e=>{
+  const button=e.target.closest('button')
+  if(!button) return
+  if(!restoreContextSelection()) return
+  const cmd=button.dataset.cmd
+  const color=button.dataset.color
+  const emoji=button.dataset.emoji
+  if(cmd){
+    document.execCommand(cmd,false,null)
+  }
+  if(color){
+    document.execCommand('foreColor',false,color)
+  }
+  if(emoji){
+    insertEmoji(emoji)
+  }
+  closeContextMenu()
+})
+
+document.addEventListener('contextmenu',e=>{
+  const editable=e.target.closest('[contenteditable="true"]')
+  if(!editable){
+    closeContextMenu()
+    return
+  }
+  e.preventDefault()
+  const selection=window.getSelection()
+  let range=null
+  if(selection.rangeCount){
+    const candidate=selection.getRangeAt(0)
+    if(editable.contains(candidate.startContainer)){
+      range=candidate
+    }
+  }
+  openContextMenu(e.clientX,e.clientY,range,editable)
+})
+contextMenu.addEventListener('contextmenu',e=>e.preventDefault())
+document.addEventListener('click',e=>{
+  if(contextMenu.classList.contains('show')&&!contextMenu.contains(e.target)){
+    closeContextMenu()
+  }
+})
+window.addEventListener('blur',closeContextMenu)
+window.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&contextMenu.classList.contains('show')){
+    closeContextMenu()
   }
 })
 
 initSelectors()
 initSupabase()
 render()
+
+window.addEventListener('beforeunload',()=>{
+  if(!supabaseClient||!cloudUser) return
+  pushToCloud()
+})
 
 prevDayBtn.addEventListener('click',()=>{
   selectedDay-=1

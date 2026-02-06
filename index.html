@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Monthly Habit Tracker</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%8E%AF%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCA2NCA2NCc+PHRleHQgeD0nNTAlJyB5PSc1MiUnIGRvbWluYW50LWJhc2VsaW5lPSdtaWRkbGUnIHRleHQtYW5jaG9yPSdtaWRkbGUnIGZvbnQtc2l6ZT0nNDAnPuKcqOKcqOKcqDwvdGV4dD48L3N2Zz4=" type="image/svg+xml">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -17,7 +17,7 @@
       <button id="cloudSignOut" class="cloud-link" type="button" hidden>Sign out</button>
       <select id="monthSelect"></select>
       <select id="yearSelect"></select>
-      <button onclick="addHabit()">＋ Add Habit</button>
+      <button id="addHabitBtn" type="button">＋ Add Habit</button>
     </div>
   </header>
 
@@ -29,15 +29,15 @@
       <div class="bottom-cards">
         <div class="mini-card goals-card">
           <h3>Goals</h3>
-          <textarea id="monthlyGoals"></textarea>
+          <div id="monthlyGoals" class="note-edit" contenteditable="true"></div>
         </div>
         <div class="mini-card excited-card">
           <h3>Excited</h3>
-          <textarea id="monthlyExcited"></textarea>
+          <div id="monthlyExcited" class="note-edit" contenteditable="true"></div>
         </div>
         <div class="mini-card grateful-card">
           <h3>Insights</h3>
-          <textarea id="monthlyInsights"></textarea>
+          <div id="monthlyInsights" class="note-edit" contenteditable="true"></div>
         </div>
       </div>
     </div>
@@ -52,6 +52,11 @@
         </div>
       </div>
       <div id="dailyMood" class="mood-row"></div>
+      <div class="dreams-row">
+        <button id="journalBtn" class="journal-btn" type="button">Journal</button>
+        <button id="gratefulBtn" class="grateful-btn" type="button">Grateful</button>
+        <button id="dreamsBtn" class="dreams-btn" type="button">Dreams</button>
+      </div>
       <div class="sticky-note yellow">
         <h3>To-Do</h3>
         <div id="dailyList" class="daily-list"></div>
@@ -82,6 +87,82 @@
       <button id="cloudSignUp" type="button">Sign Up</button>
       <button id="cloudCancel" type="button">Cancel</button>
     </div>
+  </div>
+</div>
+
+<div id="dreamModal" class="dream-modal" aria-hidden="true">
+  <div class="dream-backdrop" id="dreamBackdrop"></div>
+  <div class="dream-card" role="dialog" aria-modal="true" aria-labelledby="dreamTitle">
+    <h3 id="dreamTitle">Dreams</h3>
+    <div id="dreamText" class="modal-edit" contenteditable="true" data-placeholder="Write your dream..."></div>
+    <div class="dream-actions">
+      <button id="dreamClose" type="button">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="journalModal" class="journal-modal" aria-hidden="true">
+  <div class="journal-backdrop" id="journalBackdrop"></div>
+  <div class="journal-card" role="dialog" aria-modal="true" aria-labelledby="journalTitle">
+    <h3 id="journalTitle">Journal</h3>
+    <div id="journalText" class="modal-edit" contenteditable="true" data-placeholder="Write your journal..."></div>
+    <div class="journal-actions">
+      <button id="journalClose" type="button">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="gratefulModal" class="grateful-modal" aria-hidden="true">
+  <div class="grateful-backdrop" id="gratefulBackdrop"></div>
+  <div class="grateful-modal-card" role="dialog" aria-modal="true" aria-labelledby="gratefulTitle">
+    <h3 id="gratefulTitle">Grateful</h3>
+    <div class="grateful-list">
+      <div class="grateful-input" contenteditable="true" data-placeholder="1."></div>
+      <div class="grateful-input" contenteditable="true" data-placeholder="2."></div>
+      <div class="grateful-input" contenteditable="true" data-placeholder="3."></div>
+      <div class="grateful-input" contenteditable="true" data-placeholder="4."></div>
+      <div class="grateful-input" contenteditable="true" data-placeholder="5."></div>
+    </div>
+    <div class="grateful-actions">
+      <button id="gratefulClose" type="button">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="habitModal" class="habit-modal" aria-hidden="true">
+  <div class="habit-backdrop" id="habitBackdrop"></div>
+  <div class="habit-card" role="dialog" aria-modal="true" aria-labelledby="habitTitle">
+    <h3 id="habitTitle">Add Habit</h3>
+    <label class="habit-label">Habit name
+      <input id="habitNameInput" type="text" placeholder="e.g. Stretching">
+    </label>
+    <label class="habit-label">Emoji icon
+      <input id="habitIconInput" type="text" placeholder="e.g. ✨">
+    </label>
+    <div class="habit-actions">
+      <button id="habitSave" type="button">Add</button>
+      <button id="habitCancel" type="button">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div id="contextMenu" class="context-menu" role="menu" aria-hidden="true">
+  <button type="button" data-cmd="bold" role="menuitem">Bold</button>
+  <button type="button" data-cmd="strikeThrough" role="menuitem">Strikethrough</button>
+  <div class="context-row" role="presentation">
+    <button type="button" data-color="#111111" class="color-chip" aria-label="Black"></button>
+    <button type="button" data-color="#b33a3a" class="color-chip" aria-label="Red"></button>
+    <button type="button" data-color="#2e7d5b" class="color-chip" aria-label="Green"></button>
+    <button type="button" data-color="#2f6fec" class="color-chip" aria-label="Blue"></button>
+    <button type="button" data-color="#b86a16" class="color-chip" aria-label="Orange"></button>
+    <button type="button" data-color="#d4a017" class="color-chip" aria-label="Golden"></button>
+  </div>
+  <div class="context-row" role="presentation">
+    <button type="button" data-emoji="🎉" class="emoji-btn" aria-label="Celebration">🎉</button>
+    <button type="button" data-emoji="🥰" class="emoji-btn" aria-label="Cute">🥰</button>
+    <button type="button" data-emoji="😊" class="emoji-btn" aria-label="Happy">😊</button>
+    <button type="button" data-emoji="😤" class="emoji-btn" aria-label="Determined">😤</button>
+    <button type="button" data-emoji="⭐️" class="emoji-btn" aria-label="Star">⭐️</button>
   </div>
 </div>
 
