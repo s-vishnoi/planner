@@ -42,8 +42,10 @@ const gratefulTitle=document.getElementById('gratefulTitle')
 const addHabitBtn=document.getElementById('addHabitBtn')
 const habitModal=document.getElementById('habitModal')
 const habitBackdrop=document.getElementById('habitBackdrop')
+const habitTitle=document.getElementById('habitTitle')
 const habitNameInput=document.getElementById('habitNameInput')
 const habitIconInput=document.getElementById('habitIconInput')
+const habitDelete=document.getElementById('habitDelete')
 const habitSave=document.getElementById('habitSave')
 const habitCancel=document.getElementById('habitCancel')
 const contextMenu=document.getElementById('contextMenu')
@@ -62,6 +64,7 @@ let selectedDay=null
 let selectedKey=null
 let contextRange=null
 let contextEditable=null
+let editingHabitIndex=null
 
 let store=JSON.parse(localStorage.getItem('habit-plus-v4')||'{}')
 const SUPABASE_URL='https://bkmbbtndwfaqwktzmewe.supabase.co'
@@ -128,12 +131,7 @@ function addHabit(name,icon){
 }
 
 function editHabit(i){
-  const h=store[key()].habits[i]
-  const name=prompt('Edit habit name',h.name)
-  if(name!==null) h.name=name
-  const icon=prompt('Edit emoji',h.icon)
-  if(icon!==null) h.icon=icon
-  save()
+  openHabitModal('edit',i)
 }
 
 function toggle(h,d,mode){
@@ -332,17 +330,32 @@ function closeDreamModal(){
   dreamModal.setAttribute('aria-hidden','true')
 }
 
-function openHabitModal(){
+function openHabitModal(mode='add',index=null){
   habitModal.classList.add('show')
   habitModal.setAttribute('aria-hidden','false')
-  habitNameInput.value=''
-  habitIconInput.value=''
+  if(mode==='edit'){
+    editingHabitIndex=index
+    const h=store[key()].habits[index]
+    habitTitle.textContent='Edit Habit'
+    habitSave.textContent='Save'
+    habitDelete.style.display='inline-flex'
+    habitNameInput.value=h?.name||''
+    habitIconInput.value=h?.icon||''
+  }else{
+    editingHabitIndex=null
+    habitTitle.textContent='Add Habit'
+    habitSave.textContent='Add'
+    habitDelete.style.display='none'
+    habitNameInput.value=''
+    habitIconInput.value=''
+  }
   habitNameInput.focus()
 }
 
 function closeHabitModal(){
   habitModal.classList.remove('show')
   habitModal.setAttribute('aria-hidden','true')
+  editingHabitIndex=null
 }
 
 function openJournalModal(){
@@ -779,14 +792,32 @@ window.addEventListener('keydown',e=>{
   }
 })
 
-addHabitBtn.addEventListener('click',openHabitModal)
+addHabitBtn.addEventListener('click',()=>openHabitModal('add'))
 habitBackdrop.addEventListener('click',closeHabitModal)
 habitCancel.addEventListener('click',closeHabitModal)
+habitDelete.addEventListener('click',()=>{
+  if(editingHabitIndex===null) return
+  const h=store[key()].habits[editingHabitIndex]
+  const name=h?.name||'this habit'
+  if(!confirm(`Delete habit "${name}"?`)) return
+  store[key()].habits.splice(editingHabitIndex,1)
+  save()
+  closeHabitModal()
+})
 habitSave.addEventListener('click',()=>{
   const name=habitNameInput.value.trim()
   const icon=habitIconInput.value.trim()
   if(!name) return
-  addHabit(name,icon)
+  if(editingHabitIndex===null){
+    addHabit(name,icon)
+  }else{
+    const h=store[key()].habits[editingHabitIndex]
+    if(h){
+      h.name=name
+      h.icon=icon
+    }
+    save()
+  }
   closeHabitModal()
 })
 

@@ -572,6 +572,13 @@ td.habit-col{
 .habit-actions button:hover{
   background:#e6b84f;
 }
+.habit-actions button.danger{
+  background:#e27b5b;
+  color:#fff;
+}
+.habit-actions button.danger:hover{
+  background:#d76845;
+}
 .sticky-note{
   width:260px;
   border-radius:12px;
