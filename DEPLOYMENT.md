@@ -7,27 +7,72 @@ This app is ready to deploy! Choose one of these super simple options:
 ## Option 1: Vercel (Recommended - 2 minutes)
 
 ### Steps:
+
+**If you've never used Vercel before:**
+
 1. **Install Vercel CLI**
    ```bash
    npm install -g vercel
    ```
 
-2. **Deploy from this folder**
+2. **Login to Vercel** (this opens your browser)
    ```bash
+   vercel login
+   ```
+   - Click the link or press Enter to open browser
+   - Confirm the login
+   - Wait for "Congratulations! You are now logged in."
+
+3. **Deploy from this folder**
+   ```bash
+   cd /path/to/planner
    vercel
    ```
 
-3. **Follow the prompts:**
-   - "Set up and deploy?"  → Press Enter (Yes)
-   - "Which scope?"        → Press Enter (your account)
-   - "Link to existing?"   → Press Enter (No)
-   - "What's your name?"   → Press Enter (default)
-   - "In which directory?" → Press Enter (current)
-   - "Want to override?"   → Press Enter (No)
+4. **Follow the prompts:**
+   - "Set up and deploy?"  → Press **Enter** (Yes)
+   - "Which scope?"        → Press **Enter** (your account)
+   - "Link to existing?"   → Press **Enter** (No)
+   - "What's your name?"   → Press **Enter** (accepts default: `planner`)
+   - "In which directory?" → Press **Enter** (current directory)
+   - "Want to override?"   → Press **Enter** (No)
 
-4. **Done!** You'll get a URL like: `https://planner-xyz.vercel.app`
+5. **Done!** You'll get TWO URLs:
+   - Preview: `https://planner-abc123.vercel.app` (unique deploy)
+   - Production: `https://planner-yourname.vercel.app` (stable URL)
 
-5. **Share the link with your friends!**
+6. **Share the Production URL with your friends!**
+
+---
+
+### Auto-Deploy on Git Push (Optional)
+
+After first deploy, go to: https://vercel.com/dashboard
+
+1. Find your `planner` project
+2. Go to **Settings → Git**
+3. Click **Connect Git Repository**
+4. Select `s-vishnoi/planner`
+5. Done! Now every push to `main` auto-deploys
+
+---
+
+### Troubleshooting Vercel Deploy
+
+**"No existing credentials found"**
+- Run `vercel login` first
+- Make sure you complete the browser authentication
+
+**"Command not found: vercel"**
+- Make sure npm is installed: `npm --version`
+- Try: `npx vercel` instead (runs without global install)
+
+**Browser won't open for login**
+- Copy the URL shown in terminal
+- Paste it into your browser manually
+
+**It's asking too many questions**
+- Just press Enter for all of them - the defaults work!
 
 ---
 
@@ -73,6 +118,20 @@ This app is ready to deploy! Choose one of these super simple options:
 
 ---
 
+## After Deploying: Update Supabase
+
+Once deployed, you need to tell Supabase about your new URL:
+
+1. Go to: https://supabase.com/dashboard
+2. Select your project
+3. Go to: **Authentication → URL Configuration**
+4. Update **Site URL** to your Vercel URL: `https://planner-yourname.vercel.app`
+5. Add to **Redirect URLs**: `https://planner-yourname.vercel.app/**`
+
+This makes email verification work on your deployed site!
+
+---
+
 ## Troubleshooting:
 
 **Q: Do I need to change anything in my code?**
@@ -83,6 +142,9 @@ A: They're already in `script.js` and safe to commit (they're meant to be public
 
 **Q: Can I get a custom domain?**
 A: Yes! All three platforms support custom domains in their settings.
+
+**Q: Email verification isn't working**
+A: Make sure you updated the Supabase Site URL (see "After Deploying" above)
 
 ---
 
