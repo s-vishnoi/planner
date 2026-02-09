@@ -1,4 +1,4 @@
-# Monthly Habit Tracker
+# Monthly Habit Tracke
 
 A simple, beautiful habit tracking app with optional cloud sync via Supabase.
 
