@@ -328,8 +328,7 @@
 
     .task-row.done .task-input,
     .task-row.done .notes-input {
-      text-decoration: line-through;
-      opacity: .85;
+      opacity: .6;
     }
 
     .notes-input {
@@ -400,6 +399,10 @@
 
     const loadedTasks = loadTasks();
     let tasks = cleanTasks(loadedTasks);
+    // Sort tasks: active tasks first, completed tasks last, preserving relative order.
+    const activeOnLoad = tasks.filter(t => !t.done);
+    const completedOnLoad = tasks.filter(t => t.done);
+    tasks = [...activeOnLoad, ...completedOnLoad];
     if (JSON.stringify(tasks) !== JSON.stringify(loadedTasks)) {
       saveTasks();
     }
@@ -711,6 +714,12 @@
 
           const [draggedTask] = tasks.splice(draggedIndex, 1);
           tasks.splice(targetIndex, 0, draggedTask);
+
+          // Re-sort: active tasks first, completed tasks last, preserving the new relative order.
+          const active = tasks.filter(t => !t.done);
+          const completed = tasks.filter(t => t.done);
+          tasks = [...active, ...completed];
+
           saveTasks();
           renderTasks();
         });
@@ -723,6 +732,10 @@
         check.setAttribute('aria-label', task.done ? 'Mark as not done' : 'Mark as done');
         check.addEventListener('click', () => {
           task.done = !task.done;
+          // Sort tasks: active tasks first, completed tasks last, preserving relative order.
+          const active = tasks.filter(t => !t.done);
+          const completed = tasks.filter(t => t.done);
+          tasks = [...active, ...completed];
           saveTasks();
           renderTasks();
         });
